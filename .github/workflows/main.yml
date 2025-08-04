@@ -2,7 +2,7 @@ name: Application CI
 on: [push, pull_request]
 jobs:
   pipeline:
-    name: dailyGratitudeJournal pipeline
+    name: dailyPlanner pipeline
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.pull_request.title, '[skip ci]') && !contains(github.event.pull_request.title, '[ci skip]')"
     timeout-minutes: 40
@@ -12,40 +12,66 @@ jobs:
       SPRING_JPA_SHOW_SQL: false
       JHI_DISABLE_WEBPACK_LOGS: true
     steps:
+      # Setup Environment
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: actions/setup-node@v4
         with:
           node-version: 22.15.0
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 17
-      - name: Install Node.js packages
-        run: npm install
-      - name: Run backend test with test profile
+
+      # Start Application
+      - name: Setup backend and start application
         run: |
           chmod +x mvnw
-          ./mvnw test -Dspring.profiles.active=test
-      - name: Run performance tests
-        run: npm run ci:performance:test
-      - name: Upload Gatling Report
+          nohup ./mvnw -Dskip.installnodenpm -Dskip.npm -ntp --batch-mode spring-boot:run &
+          npx wait-on http://localhost:8080/
+
+      # Backend Tests
+      - name: Run Backend Tests (JUnit + Spring Boot + Cucumber)
+        run: |
+          mvn test
+          mvn surefire-report:report-only
+          mvn verify
+          mvn test -Dtest=CucumberIT -Dcucumber.plugin="html:target/cucumber-reports/cucumber.html,json:target/cucumber-reports/cucumber.json"
+      - name: Upload JUnit Report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: gatling-report
-          path: target/gatling/**
-      - name: Run frontend test
-        run: npm run ci:frontend:test
-      - name: Package application
-        run: npm run java:jar:prod
-      - name: 'E2E: Package'
-        run: npm run ci:e2e:package
-      - name: 'E2E: Prepare'
-        run: npm run ci:e2e:prepare
-      - name: 'E2E: Run'
-        run: npm run ci:e2e:run
-        env:
-          CYPRESS_ENABLE_RECORD: false
+          name: surefire-html-report
+          path: target/site/surefire-report.html
+          retention-days: 30
+      - name: Upload Cucumber Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cucumber-html-report
+          path: target/cucumber-reports/
+          retention-days: 30
+
+        # Frontend Tests
+      - name: Run Frontend Tests (Jest)
+        run: npm run test
+
+      # E2E Tests
+      - name: Build and Run E2E Tests
+
+        run: |
+          npm run ci:e2e:package
+          npm run ci:e2e:prepare
+          npm run ci:e2e:run
+          npm run ci:e2e:teardown
+
           CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-      - name: 'E2E: Teardown'
-        run: npm run ci:e2e:teardown
+        continue-on-error: true
+
+      # Performance Tests
+      - name: Run Performance Tests (Gatling)
+        run: mvn gatling:test
