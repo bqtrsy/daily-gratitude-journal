@@ -20,32 +20,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
+
       - name: Install Node.js packages
         run: npm install
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+      - name: Start backend server
+        run: |
+          nohup ./mvnw -Dskip.installnodenpm -Dskip.npm -ntp --batch-mode spring-boot:run &
+          npx wait-on http://localhost:8080/management/health
+
       - name: Run backend test with test profile
-        run: |
-          chmod +x mvnw
-          ./mvnw test -Dspring.profiles.active=test
-      - name: Start application for performance tests
-        run: |
-          chmod +x mvnw
-          ./mvnw spring-boot:run -Dspring.profiles.active=test &
-          echo "Waiting for application to start..."
-          for i in {1..60}; do
-            if curl -f http://localhost:8080/management/health > /dev/null 2>&1; then
-              echo "Application is ready!"
-              break
-            fi
-            echo "Attempt $i: Application not ready yet, waiting..."
-            sleep 5
-          done
-          curl -f http://localhost:8080/management/health || (echo "Application failed to start" && exit 1)
+        run: ./mvnw test -Dspring.profiles.active=test
       - name: Run performance tests
-        run: timeout 300 npm run ci:performance:test
-      - name: Stop application
-        run: |
-          pkill -f "spring-boot:run" || true
-          sleep 5
+        run: npm run ci:performance:test
       - name: Upload Gatling Report
         uses: actions/upload-artifact@v4
         with:
