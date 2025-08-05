@@ -15,18 +15,26 @@
 
 logging:
   level:
-    ROOT: DEBUG
-    tech.jhipster: DEBUG
+    ROOT: WARN
     org.hibernate.SQL: DEBUG
-    com.mycompany.myapp: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 spring:
-  devtools:
-    restart:
-      enabled: true
-      additional-exclude: static/**,.h2.server.properties
-    livereload:
-      enabled: false # we use Webpack dev server + BrowserSync for livereload
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MYSQL
+    username: test
+    password:
+    hikari:
+      poolName: Hikari
+      auto-commit: false
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+
   docker:
     compose:
       enabled: false
@@ -35,21 +43,15 @@ spring:
   jackson:
     serialization:
       indent-output: true
-  datasource:
-    type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:h2:mem:dailyGratitudeJournal;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MYSQL
-    username: dailyGratitudeJournal
-    password:
-    hikari:
-      poolName: Hikari
-      auto-commit: false
+
   h2:
     console:
       # JHipster uses a custom h2-console initializer
       enabled: true
   liquibase:
+    enabled: true
     # Remove 'faker' if you do not want the sample data to be loaded automatically
-    contexts: dev, faker
+    contexts: test
   mail:
     host: localhost
     port: 25
@@ -61,8 +63,7 @@ spring:
     cache: false
 
 server:
-  port: 8080
-  # make sure requests the proxy uri instead of the server one
+  port: 10344
   forward-headers-strategy: native
 
 # ===================================================================
