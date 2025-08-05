@@ -1,0 +1,14 @@
+spring:
+  liquibase:
+    enabled: true
+    contexts: test
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+
+  h2:
+    console:
+      enabled: true
